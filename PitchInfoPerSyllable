@@ -1,0 +1,84 @@
+# This code goes through all the sound files in a folder and
+# extracts pitch information (mean, min, and max F0 in semitones)
+# for each syllable.
+# Each sound file should already have a corresponding textgrid file.
+# Each textgrid should share the same name as its sound file, but 
+# end with "_markbysyllables.TextGrid".
+# Each textgrid should have a tier that labels the interval for
+# each syllable. The labels can be any text.
+# For each labeled interval (syllable), the code will extract
+# the pitch contour via autocorrelation, and print the
+# mean, min, and max F0 into a txt file called "pitchresult".
+# Each row of the txt file represents one syllable of a sound file.
+
+# Code mostly written by Joselyn Ho (github.com/joselyngithubs),
+# but with lots of inspiration from code written by:
+# Mietta Lennes
+# Pauline Welby
+# Katherine Crosswhite
+# http://praatscripting.lingphon.net/
+
+# To run:
+# 1. Put sound files and textgrids in the same folder.
+# 2. Run the code. You'll be asked to pick the folder where they're stored.
+# 3. The resulting pitchresults.txt file will be stored in that same folder.
+
+####################################
+
+sourcedir$ = chooseDirectory$: "Choose the source folder"
+sourcedir$ = sourcedir$+"\"
+filename$ = "SpeechStress"
+resultfile$ = sourcedir$+"pitchresult.txt"
+
+if fileReadable (resultfile$)
+	pause The result file 'resultfile$' already exists! Do you want to overwrite it?
+	filedelete 'resultfile$'
+endif
+
+titleline$ = "file	meanF0	minF0	maxF0"
+fileappend "'resultfile$'" 'titleline$' 'newline$'
+
+Create Strings as file list... filelist 'sourcedir$''filename$'*
+
+numFiles = Get number of strings
+
+x = 1
+while x < numFiles
+	
+	# Select the voice file and associated textgrid
+
+	select Strings filelist
+	currentfile$ = Get string... x
+	Read from file... 'sourcedir$''currentfile$'
+	objectname$ = selected$ ("Sound")
+	textgridname$ = objectname$ + "_markbysyllables.TextGrid"
+	Read from file... 'sourcedir$''textgridname$'
+	textgridfile$ = selected$ ("TextGrid")
+
+	# Extract intervals, then extract the pitch contour per interval
+	
+	totalints = Get number of intervals: 1
+	for nInterv from 1 to 'totalints'
+		label$ = Get label of interval: 1, 'nInterv'
+			if label$ != ""
+				startpt = Get starting point: 1, 'nInterv'
+				endpt = Get end point: 1, 'nInterv'
+				select Sound 'objectname$'
+				Extract part: startpt, endpt, "rectangular", 1, "no"
+				
+				# Get the pitch info and print to txt file
+
+				To Pitch (ac): 0, 75, 15, "no", 0.03, 0.45, 0.01, 0.35, 0.14, 600
+				meanF0 = Get mean: 0, 0, "semitones re 1 Hz"
+				minF0 = Get minimum: 0, 0, "semitones re 1 Hz", "Parabolic"
+				maxF0 = Get maximum: 0, 0, "semitones re 1 Hz", "Parabolic"
+				
+				currResult$ = "'objectname$'	'meanF0'	'minF0'	'maxF0'"
+				fileappend "'resultfile$'" 'currResult$' 'newline$'
+				
+				select TextGrid 'textgridfile$'
+			endif
+	endfor
+	
+	x = x+2
+endwhile
